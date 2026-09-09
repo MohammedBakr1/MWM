@@ -1,0 +1,194 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+
+\title{mwm: A Minimal Runtime-Configurable X11 Window Manager}
+\author{Mohammed Bakr}
+\date{\today}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+
+mwm is a minimal tiling and floating window manager for X11, written in C
+using Xlib. It supports both tiling and floating window arrangements,
+multiple layout modes, workspaces, and per-application rules. Unlike an
+earlier version of this project, configuration is read from a plain text
+file at startup rather than compiled into the binary, allowing keybinds,
+colors, and behavior to be changed without recompilation.
+
+\section{Design Goals}
+
+\begin{itemize}
+  \item Small, readable codebase with no external dependencies beyond Xlib.
+  \item Runtime configuration through a simple key-value file format.
+  \item Support for both tiling and floating window management, selectable
+        per window and per workspace.
+  \item Predictable, minimal feature set in the spirit of suckless-style
+        window managers.
+\end{itemize}
+
+\section{Architecture}
+
+The project is organized into five translation units, each responsible for
+one area of functionality.
+
+\begin{itemize}
+  \item \textbf{mwm.c}: X server connection, event loop, and window
+        lifecycle management (mapping, unmapping, destruction).
+  \item \textbf{config.c}: Parses the runtime configuration file and
+        populates the global configuration structure, including keybinds
+        and window rules.
+  \item \textbf{client.c}: Maintains the linked list of managed windows
+        (clients), including creation, destruction, lookup, and focus
+        handling.
+  \item \textbf{layout.c}: Computes window geometry for the tiling and
+        monocle layouts. Floating windows retain their own geometry and
+        are left untouched by this module.
+  \item \textbf{actions.c}: Implements the behavior triggered by each
+        keybind, such as spawning programs, changing layouts, and
+        switching workspaces.
+\end{itemize}
+
+\subsection{Core Data Structures}
+
+The \texttt{Client} structure represents a single managed window. It
+stores the window's current geometry, its stored floating geometry (so a
+window can return to its previous size and position after being tiled),
+its workspace, and its floating and fullscreen state.
+
+The \texttt{Config} structure holds all values loaded from the
+configuration file: the modifier key, border appearance, tiling ratio,
+gap size, the list of keybinds, and the list of per-application rules.
+
+The \texttt{WM} structure is the single global instance holding the X
+display connection, the root window, screen dimensions, the client list,
+the currently focused client, and the active layout for each workspace.
+
+\section{Configuration File}
+
+The configuration file is located at \texttt{\textasciitilde/.config/mwm/mwmrc}.
+It uses a simple line-based format:
+
+\begin{lstlisting}
+key = value
+bind = mod+key, action, arg
+rule = ClassName, workspace=N, floating=0 or 1
+\end{lstlisting}
+
+Lines beginning with \texttt{\#} are treated as comments and ignored by
+the parser. If no configuration file is found, built-in defaults are
+used instead.
+
+\subsection{General Settings}
+
+\begin{itemize}
+  \item \texttt{mod}: the modifier key used for keybinds, either
+        \texttt{super} or \texttt{alt}.
+  \item \texttt{border\_width}: window border thickness in pixels.
+  \item \texttt{border\_focus} and \texttt{border\_unfocus}: border colors
+        in hexadecimal, used for the focused and unfocused windows.
+  \item \texttt{master\_ratio}: fraction of the screen width given to the
+        master area in tiling mode.
+  \item \texttt{gap}: spacing in pixels between tiled windows and the
+        screen edge.
+\end{itemize}
+
+\subsection{Keybinds}
+
+Each \texttt{bind} line associates a key combination with an action and
+an optional argument. The key combination is written as a sequence of
+modifiers and a key name joined with \texttt{+}, for example
+\texttt{mod+shift+Return}. Supported actions include spawning a program,
+killing the focused window, moving focus, toggling floating or fullscreen
+state, changing the layout, switching or moving windows between
+workspaces, resizing the master area, reloading the configuration, and
+quitting.
+
+\subsection{Rules}
+
+A \texttt{rule} line assigns a workspace or floating state to windows of
+a given class name, applied automatically when the window is first
+managed.
+
+\section{Event Handling}
+
+mwm operates on a single-threaded event loop built around
+\texttt{XNextEvent}. The events handled are:
+
+\begin{itemize}
+  \item \texttt{MapRequest}: a new window is being mapped and is brought
+        under management.
+  \item \texttt{DestroyNotify} and \texttt{UnmapNotify}: a managed window
+        is removed from the client list and the layout is recomputed.
+  \item \texttt{KeyPress}: the pressed key combination is matched against
+        the configured keybinds, and the corresponding action is invoked.
+  \item \texttt{EnterNotify}: used to implement focus-follows-mouse
+        behavior.
+\end{itemize}
+
+\section{Layout Engine}
+
+Three layout modes are supported, selectable per workspace:
+
+\begin{itemize}
+  \item \textbf{Tile}: the first window occupies a master area on the
+        left, sized according to \texttt{master\_ratio}. Remaining
+        windows are stacked vertically on the right.
+  \item \textbf{Monocle}: all windows occupy the full available screen
+        area, stacked on top of each other.
+  \item \textbf{Float}: no automatic geometry is applied; windows keep
+        whatever position and size they were given.
+\end{itemize}
+
+Fullscreen windows bypass the active layout and occupy the entire screen
+regardless of mode.
+
+\section{Building and Installation}
+
+The project is built with a plain Makefile and requires only the Xlib
+development headers.
+
+\begin{lstlisting}
+make
+sudo make install
+\end{lstlisting}
+
+Installation places the binary at \texttt{/usr/local/bin/mwm} and copies
+a default configuration file to the user's home directory if one does
+not already exist.
+
+\section{Testing}
+
+Because running an unfinished window manager directly in a login session
+carries risk, mwm can be tested inside Xephyr, a nested X server that
+runs as a window within an existing session.
+
+\begin{lstlisting}
+Xephyr -screen 1280x800 :1 &
+DISPLAY=:1 ./mwm
+\end{lstlisting}
+
+This allows the window manager to be started, interacted with, and
+restarted freely without affecting the outer session.
+
+\section{Future Work}
+
+Planned extensions include mouse-based dragging and resizing of floating
+windows, an optional status bar, and multi-monitor support.
+
+\end{document}

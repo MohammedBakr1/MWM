@@ -1,0 +1,50 @@
+# mwm runtime config
+# location: ~/.config/mwm/mwmrc
+# lines starting with # are comments
+
+mod = super
+border_width = 2
+border_focus = #5e81ac
+border_unfocus = #3b4252
+master_ratio = 0.55
+gap = 8
+
+# --- keybinds ---
+# format: bind = mod+key, action, arg(optional)
+
+bind = mod+Return, spawn, st
+bind = mod+d, spawn, dmenu_run
+bind = mod+shift+q, kill
+bind = mod+shift+e, quit
+bind = mod+shift+r, reload_config
+
+bind = mod+j, focus_next
+bind = mod+k, focus_prev
+
+bind = mod+space, toggle_float
+bind = mod+f, toggle_fullscreen
+
+bind = mod+t, set_layout, tile
+bind = mod+m, set_layout, monocle
+bind = mod+shift+f, set_layout, float
+
+bind = mod+l, resize_master, 0.05
+bind = mod+h, resize_master, -0.05
+
+bind = mod+1, goto_workspace, 1
+bind = mod+2, goto_workspace, 2
+bind = mod+3, goto_workspace, 3
+bind = mod+4, goto_workspace, 4
+bind = mod+5, goto_workspace, 5
+
+bind = mod+shift+1, move_to_workspace, 1
+bind = mod+shift+2, move_to_workspace, 2
+bind = mod+shift+3, move_to_workspace, 3
+bind = mod+shift+4, move_to_workspace, 4
+bind = mod+shift+5, move_to_workspace, 5
+
+# --- window rules ---
+# format: rule = ClassName, workspace=N, floating=0|1
+
+rule = Gimp, floating=1
+rule = feh, floating=1
